@@ -6,6 +6,7 @@ type Customer = {
   id: string;
   name: string;
   phone: string;
+  whatsappId: string | null;
   email: string | null;
   company: string | null;
   notes: string | null;
@@ -18,6 +19,7 @@ type Customer = {
 type FormState = {
   name: string;
   phone: string;
+  whatsappId: string;
   email: string;
   company: string;
   notes: string;
@@ -26,6 +28,7 @@ type FormState = {
 const initialFormState: FormState = {
   name: "",
   phone: "",
+  whatsappId: "",
   email: "",
   company: "",
   notes: "",
@@ -47,6 +50,7 @@ export function CustomersManager({ initialCustomers }: CustomersManagerProps) {
     setForm({
       name: customer.name,
       phone: customer.phone,
+      whatsappId: customer.whatsappId ?? "",
       email: customer.email ?? "",
       company: customer.company ?? "",
       notes: customer.notes ?? "",
@@ -73,6 +77,7 @@ export function CustomersManager({ initialCustomers }: CustomersManagerProps) {
     const payload = {
       name: form.name,
       phone: form.phone,
+      whatsappId: form.whatsappId || null,
       email: form.email || null,
       company: form.company || null,
       notes: form.notes || null,
@@ -133,12 +138,20 @@ export function CustomersManager({ initialCustomers }: CustomersManagerProps) {
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <input
+          placeholder="WhatsApp ID (ex: 5511999998888)"
+          value={form.whatsappId}
+          onChange={(event) =>
+            setForm((previous) => ({ ...previous, whatsappId: event.target.value }))
+          }
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+        <input
           placeholder="Empresa"
           value={form.company}
           onChange={(event) =>
             setForm((previous) => ({ ...previous, company: event.target.value }))
           }
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
         />
         <textarea
           placeholder="Observações"
@@ -184,6 +197,7 @@ export function CustomersManager({ initialCustomers }: CustomersManagerProps) {
               <th className="px-4 py-3 font-medium text-slate-600">Nome</th>
               <th className="px-4 py-3 font-medium text-slate-600">Telefone</th>
               <th className="px-4 py-3 font-medium text-slate-600">Empresa</th>
+              <th className="px-4 py-3 font-medium text-slate-600">WhatsApp</th>
               <th className="px-4 py-3 font-medium text-slate-600">Atendimentos</th>
               <th className="px-4 py-3 font-medium text-slate-600">Ações</th>
             </tr>
@@ -194,6 +208,9 @@ export function CustomersManager({ initialCustomers }: CustomersManagerProps) {
                 <td className="px-4 py-3 text-slate-800">{customer.name}</td>
                 <td className="px-4 py-3 text-slate-600">{customer.phone}</td>
                 <td className="px-4 py-3 text-slate-600">{customer.company ?? "-"}</td>
+                <td className="px-4 py-3 text-slate-600">
+                  {customer.whatsappId ?? "-"}
+                </td>
                 <td className="px-4 py-3 text-slate-600">
                   {customer._count?.conversations ?? 0}
                 </td>
@@ -210,7 +227,7 @@ export function CustomersManager({ initialCustomers }: CustomersManagerProps) {
             ))}
             {customers.length === 0 ? (
               <tr>
-                <td className="px-4 py-4 text-slate-500" colSpan={5}>
+                <td className="px-4 py-4 text-slate-500" colSpan={6}>
                   Nenhum cliente cadastrado.
                 </td>
               </tr>

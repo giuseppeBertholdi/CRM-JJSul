@@ -60,9 +60,11 @@ export default async function ConversationsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold text-slate-900">Inbox de Atendimento</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">
+          Inbox de Atendimento
+        </h1>
         <p className="text-sm text-slate-500">
-          Organize conversas por setor e acompanhe a timeline.
+          Organize conversas por setor e atenda canais internos e WhatsApp.
         </p>
       </header>
 

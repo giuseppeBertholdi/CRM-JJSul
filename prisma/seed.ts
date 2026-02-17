@@ -64,17 +64,19 @@ async function main() {
       data: [
         {
           name: "Transporte Alfa",
-          phone: "(11) 99999-1111",
+          phone: "+55 (11) 99999-1111",
           email: "contato@alfa.com",
           company: "Alfa Logistica",
           notes: "Cliente recorrente de cargas fechadas.",
+          whatsappId: "5511999991111",
         },
         {
           name: "Beta Distribuicao",
-          phone: "(11) 99999-2222",
+          phone: "+55 (11) 99999-2222",
           email: "operacao@beta.com",
           company: "Beta Distribuicao LTDA",
           notes: "Preferencia por contato via WhatsApp.",
+          whatsappId: "5511999992222",
         },
       ],
     });

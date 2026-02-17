@@ -7,6 +7,7 @@ MVP funcional de um **CRM interno para empresa de transportes**, com:
 - RBAC por papel (atendente, gerente, admin)
 - isolamento de dados por setor (departamento)
 - inbox de conversas com timeline
+- integração com WhatsApp Cloud API (inbound + outbound)
 - dashboard com métricas operacionais
 - automações de lembrete com fila (BullMQ + Redis)
 
@@ -34,8 +35,9 @@ Arquitetura em camadas dentro de um monolito Next.js:
 1. Usuário autentica em `/api/auth/login` (credenciais validadas via Supabase Auth + sessão HTTP-only para RBAC interno).
 2. Middleware protege rotas privadas.
 3. APIs aplicam regras RBAC por papel e setor.
-4. Ao mudar status da conversa para um gatilho (ex.: `QUOTE_SENT`), o sistema cria `ReminderLog` e agenda job na fila.
-5. Worker processa o job, valida status atual e publica mensagem automática na timeline.
+4. Webhook `/api/integrations/whatsapp/webhook` recebe mensagens de clientes e cria/atualiza conversas no canal WhatsApp.
+5. Ao mudar status da conversa para um gatilho (ex.: `QUOTE_SENT`), o sistema cria `ReminderLog` e agenda job na fila.
+6. Worker processa o job, valida status atual e publica mensagem automática na timeline.
 
 ---
 
@@ -69,6 +71,7 @@ Arquitetura em camadas dentro de um monolito Next.js:
 │   │   │   ├── customers/*
 │   │   │   ├── dashboard/metrics/*
 │   │   │   ├── departments/*
+│   │   │   ├── integrations/whatsapp/webhook/*
 │   │   │   └── users/*
 │   │   ├── globals.css
 │   │   ├── layout.tsx
@@ -116,11 +119,11 @@ Arquivo completo: `prisma/schema.prisma`
 - **Department**
   - `id`, `name`, timestamps
 - **Customer**
-  - `id`, `name`, `phone`, `email`, `company`, `notes`, timestamps
+  - `id`, `name`, `phone`, `email`, `company`, `notes`, `whatsappId`, timestamps
 - **Conversation**
-  - `id`, `customerId`, `departmentId`, `assignedToId`, `status`, `createdAt`, `lastMessageAt`
+  - `id`, `customerId`, `departmentId`, `assignedToId`, `status`, `channel`, `externalThreadId`, `createdAt`, `lastMessageAt`
 - **Message**
-  - `id`, `conversationId`, `senderId`, `senderType`, `content`, `createdAt`
+  - `id`, `conversationId`, `senderId`, `senderType`, `channel`, `direction`, `content`, `externalMessageId`, `deliveryStatus`, `createdAt`
 - **AutomationRule**
   - `id`, `triggerStatus`, `delayHours`, `messageTemplate`, `isActive`, `departmentId`
 - **ReminderLog**
@@ -175,6 +178,7 @@ Arquivo completo: `prisma/schema.prisma`
 - `GET /api/conversations/:id` — detalhe com timeline
 - `PATCH /api/conversations/:id` — atualiza status/responsável/setor
 - `POST /api/conversations/:id/messages` — envia mensagem
+  - se `channel = WHATSAPP`, também envia externamente pela Cloud API da Meta
 
 ### Automações
 
@@ -190,6 +194,11 @@ Arquivo completo: `prisma/schema.prisma`
   - atendimentos por setor
   - tempo médio de resposta
   - clientes ativos
+
+### WhatsApp
+
+- `GET /api/integrations/whatsapp/webhook` — verificação do webhook (Meta)
+- `POST /api/integrations/whatsapp/webhook` — eventos inbound/status do WhatsApp
 
 ---
 
@@ -250,6 +259,10 @@ Configure no `.env`:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `WHATSAPP_ACCESS_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_VERIFY_TOKEN`
+- `WHATSAPP_DEFAULT_DEPARTMENT_ID` (opcional)
 
 ### 4. Banco de dados (schema + seed)
 
@@ -275,6 +288,16 @@ Aplicação: `http://localhost:3000`
 ```bash
 npm run worker
 ```
+
+### 7. Configurar webhook do WhatsApp (Meta Cloud API)
+
+No Meta for Developers (WhatsApp app):
+
+- Webhook URL: `https://SEU_DOMINIO/api/integrations/whatsapp/webhook`
+- Verify token: valor de `WHATSAPP_VERIFY_TOKEN`
+- Assinar eventos de mensagens (`messages`)
+
+Para ambiente local, use túnel (ex.: ngrok/cloudflared) apontando para `localhost:3000`.
 
 ---
 

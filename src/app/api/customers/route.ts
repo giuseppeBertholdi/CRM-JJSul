@@ -11,6 +11,7 @@ const createSchema = z.object({
   email: z.string().email().optional().nullable(),
   company: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  whatsappId: z.string().optional().nullable(),
 });
 
 export async function GET(request: NextRequest) {
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
       email: parsed.data.email ?? null,
       company: parsed.data.company ?? null,
       notes: parsed.data.notes ?? null,
+      whatsappId: parsed.data.whatsappId ?? null,
     },
   });
 

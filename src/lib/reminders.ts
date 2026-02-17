@@ -2,6 +2,10 @@ import { addHours } from "date-fns";
 import { ConversationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isQueueEnabled, remindersQueue } from "@/lib/queue";
+import {
+  normalizePhoneToWhatsAppId,
+  sendWhatsAppTextMessage,
+} from "@/lib/whatsapp";
 
 function buildReminderMessage(
   template: string,
@@ -104,12 +108,55 @@ export async function dispatchReminder(reminderLogId: string) {
     reminderLog.conversation
   );
 
+  let externalMessageId: string | null = null;
+  let deliveryStatus: string | null = null;
+
+  if (reminderLog.conversation.channel === "WHATSAPP") {
+    const recipient =
+      reminderLog.conversation.customer.whatsappId ||
+      normalizePhoneToWhatsAppId(reminderLog.conversation.customer.phone);
+
+    if (!recipient) {
+      await prisma.reminderLog.update({
+        where: { id: reminderLog.id },
+        data: {
+          status: "FAILED_NO_WHATSAPP_NUMBER",
+        },
+      });
+      return;
+    }
+
+    try {
+      const result = await sendWhatsAppTextMessage({
+        to: recipient,
+        body: messageContent,
+      });
+      externalMessageId = result.externalMessageId;
+      deliveryStatus = "SENT_TO_WHATSAPP_API";
+    } catch {
+      await prisma.reminderLog.update({
+        where: { id: reminderLog.id },
+        data: {
+          status: "FAILED_WHATSAPP_SEND",
+        },
+      });
+      return;
+    }
+  }
+
   await prisma.$transaction([
     prisma.message.create({
       data: {
         conversationId: reminderLog.conversation.id,
         senderType: "SYSTEM",
+        channel: reminderLog.conversation.channel,
+        direction:
+          reminderLog.conversation.channel === "WHATSAPP"
+            ? "OUTBOUND"
+            : "SYSTEM",
         content: messageContent,
+        externalMessageId,
+        deliveryStatus,
       },
     }),
     prisma.conversation.update({

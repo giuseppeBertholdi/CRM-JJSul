@@ -20,8 +20,21 @@ enum ConversationStatus {
   QUOTE_SENT
 }
 
+enum ConversationChannel {
+  INTERNAL
+  WHATSAPP
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+  INTERNAL
+  SYSTEM
+}
+
 enum SenderType {
   USER
+  CUSTOMER
   SYSTEM
 }
 
@@ -58,6 +71,7 @@ model Customer {
   email         String?
   company       String?
   notes         String?
+  whatsappId    String?        @unique
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   conversations Conversation[]
@@ -75,6 +89,9 @@ model Conversation {
   assignedToId  String?
   assignedTo    User?              @relation("AssignedUserConversations", fields: [assignedToId], references: [id], onDelete: SetNull)
   status        ConversationStatus @default(OPEN)
+  channel       ConversationChannel @default(INTERNAL)
+  externalThreadId String?
+  whatsappPhoneNumberId String?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   lastMessageAt DateTime           @default(now())
@@ -82,6 +99,7 @@ model Conversation {
   reminderLogs  ReminderLog[]
 
   @@index([departmentId, status])
+  @@index([channel])
   @@index([assignedToId])
   @@index([lastMessageAt])
 }
@@ -93,9 +111,14 @@ model Message {
   senderId       String?
   sender         User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
   senderType     SenderType   @default(USER)
+  channel        ConversationChannel @default(INTERNAL)
+  direction      MessageDirection @default(INTERNAL)
   content        String
+  externalMessageId String?
+  deliveryStatus String?
   createdAt      DateTime     @default(now())
 
+  @@index([externalMessageId])
   @@index([conversationId, createdAt])
 }
 
