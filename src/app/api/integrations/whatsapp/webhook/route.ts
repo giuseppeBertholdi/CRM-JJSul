@@ -39,6 +39,19 @@ type WhatsAppWebhookPayload = {
   }>;
 };
 
+type WhatsAppInboundMessage = {
+  id?: string;
+  from?: string;
+  type?: string;
+  text?: { body?: string };
+  button?: { text?: string };
+  interactive?: {
+    button_reply?: { title?: string };
+    list_reply?: { title?: string };
+  };
+  timestamp?: string;
+};
+
 function getDepartmentFallbackId() {
   if (env.WHATSAPP_DEFAULT_DEPARTMENT_ID) {
     return env.WHATSAPP_DEFAULT_DEPARTMENT_ID;
@@ -46,13 +59,7 @@ function getDepartmentFallbackId() {
   return null;
 }
 
-function extractIncomingMessageContent(
-  message: NonNullable<
-    NonNullable<
-      NonNullable<WhatsAppWebhookPayload["entry"]>[number]["changes"]
-    >[number]["value"]
-  >["messages"][number]
-) {
+function extractIncomingMessageContent(message: WhatsAppInboundMessage) {
   if (message.type === "text") return message.text?.body ?? "";
   if (message.type === "button") return message.button?.text ?? "";
   if (message.type === "interactive") {
