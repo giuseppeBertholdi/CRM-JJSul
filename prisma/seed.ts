@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import {
   ConversationStatus,
   PrismaClient,
@@ -27,8 +26,6 @@ async function main() {
     }),
   ]);
 
-  const defaultPasswordHash = await bcrypt.hash("123456", 10);
-
   const [admin, gerenteVendas, atendenteVendas] = await Promise.all([
     prisma.user.upsert({
       where: { email: "admin@jjsul.com" },
@@ -36,7 +33,6 @@ async function main() {
       create: {
         name: "Administrador",
         email: "admin@jjsul.com",
-        passwordHash: defaultPasswordHash,
         role: Role.ADMIN,
       },
     }),
@@ -46,7 +42,6 @@ async function main() {
       create: {
         name: "Gerente de Vendas",
         email: "gerente.vendas@jjsul.com",
-        passwordHash: defaultPasswordHash,
         role: Role.MANAGER,
         departmentId: vendas.id,
       },
@@ -57,7 +52,6 @@ async function main() {
       create: {
         name: "Atendente de Vendas",
         email: "atendente.vendas@jjsul.com",
-        passwordHash: defaultPasswordHash,
         role: Role.ATTENDANT,
         departmentId: vendas.id,
       },

@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { NextRequest } from "next/server";
-import { hashPassword } from "@/lib/auth";
 import { getApiUser } from "@/lib/api-auth";
 import { logAction } from "@/lib/activity-log";
 import { ROLES } from "@/lib/constants";
 import { jsonError, jsonOk } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { canManageUsers } from "@/lib/rbac";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 
 const createSchema = z.object({
   name: z.string().min(2),
@@ -60,13 +60,36 @@ export async function POST(request: NextRequest) {
     return jsonError("Dados inválidos.", 400);
   }
 
-  const passwordHash = await hashPassword(parsed.data.password);
+  const email = parsed.data.email.toLowerCase();
+
+  let authUserId = "";
+  try {
+    const supabaseAdmin = getSupabaseAdminClient();
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: parsed.data.password,
+      email_confirm: true,
+      user_metadata: {
+        name: parsed.data.name,
+      },
+    });
+
+    if (error || !data.user) {
+      return jsonError("Não foi possível criar usuário no Supabase Auth.", 400);
+    }
+    authUserId = data.user.id;
+  } catch {
+    return jsonError(
+      "Supabase Admin não configurado. Defina SUPABASE_SERVICE_ROLE_KEY.",
+      500
+    );
+  }
 
   const createdUser = await prisma.user.create({
     data: {
       name: parsed.data.name,
-      email: parsed.data.email.toLowerCase(),
-      passwordHash,
+      email,
+      authUserId,
       role: parsed.data.role,
       departmentId: parsed.data.departmentId ?? null,
     },

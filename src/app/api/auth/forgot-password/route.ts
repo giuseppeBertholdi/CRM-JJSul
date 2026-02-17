@@ -1,11 +1,10 @@
-import crypto from "crypto";
-import { addHours } from "date-fns";
 import { z } from "zod";
 import { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logAction } from "@/lib/activity-log";
+import { getSupabaseAnonClient } from "@/lib/supabase";
 
 const schema = z.object({
   email: z.string().email(),
@@ -20,35 +19,33 @@ export async function POST(request: NextRequest) {
   }
 
   const email = parsed.data.email.toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
-
-  if (!user) {
-    return jsonOk({
-      message:
-        "Se o email existir na base, você receberá instruções para redefinir a senha.",
+  try {
+    const supabase = getSupabaseAnonClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${env.APP_URL}/reset-password`,
     });
+
+    if (error) {
+      return jsonError("Não foi possível iniciar a recuperação de senha.", 400);
+    }
+  } catch {
+    return jsonError(
+      "Supabase Auth não configurado. Verifique variáveis de ambiente.",
+      500
+    );
   }
 
-  const token = crypto.randomBytes(24).toString("hex");
-  const expiresAt = addHours(new Date(), env.RESET_PASSWORD_TOKEN_HOURS);
-
-  await prisma.passwordResetToken.create({
-    data: {
-      token,
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (user) {
+    await logAction({
       userId: user.id,
-      expiresAt,
-    },
-  });
-
-  await logAction({
-    userId: user.id,
-    action: "AUTH_FORGOT_PASSWORD",
-    entity: "AUTH",
-  });
+      action: "AUTH_FORGOT_PASSWORD",
+      entity: "AUTH",
+    });
+  }
 
   return jsonOk({
     message:
       "Se o email existir na base, você receberá instruções para redefinir a senha.",
-    resetUrl: `${env.APP_URL}/reset-password?token=${token}`,
   });
 }

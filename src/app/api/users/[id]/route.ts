@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { NextRequest } from "next/server";
-import { hashPassword } from "@/lib/auth";
 import { getApiUser } from "@/lib/api-auth";
 import { logAction } from "@/lib/activity-log";
 import { ROLES } from "@/lib/constants";
 import { jsonError, jsonOk } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { canManageUsers } from "@/lib/rbac";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
@@ -31,11 +31,17 @@ export async function PUT(request: NextRequest, { params }: Params) {
     return jsonError("Dados inválidos.", 400);
   }
 
+  const existingUser = await prisma.user.findUnique({
+    where: { id },
+  });
+  if (!existingUser) {
+    return jsonError("Usuário não encontrado.", 404);
+  }
+
   const data: {
     name?: string;
     role?: (typeof ROLES)[number];
     departmentId?: string | null;
-    passwordHash?: string;
   } = {};
 
   if (parsed.data.name) data.name = parsed.data.name;
@@ -44,7 +50,29 @@ export async function PUT(request: NextRequest, { params }: Params) {
     data.departmentId = parsed.data.departmentId ?? null;
   }
   if (parsed.data.password) {
-    data.passwordHash = await hashPassword(parsed.data.password);
+    if (!existingUser.authUserId) {
+      return jsonError(
+        "Usuário ainda não vinculado ao Supabase Auth. Faça login uma vez ou recrie o usuário.",
+        400
+      );
+    }
+    try {
+      const supabaseAdmin = getSupabaseAdminClient();
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(
+        existingUser.authUserId,
+        {
+          password: parsed.data.password,
+        }
+      );
+      if (error) {
+        return jsonError("Não foi possível atualizar senha no Supabase.", 400);
+      }
+    } catch {
+      return jsonError(
+        "Supabase Admin não configurado. Defina SUPABASE_SERVICE_ROLE_KEY.",
+        500
+      );
+    }
   }
 
   const updatedUser = await prisma.user.update({

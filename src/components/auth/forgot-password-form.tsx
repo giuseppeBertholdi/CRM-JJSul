@@ -5,7 +5,6 @@ import { FormEvent, useState } from "react";
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [resetUrl, setResetUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -14,7 +13,6 @@ export function ForgotPasswordForm() {
     setLoading(true);
     setError(null);
     setMessage(null);
-    setResetUrl(null);
 
     const response = await fetch("/api/auth/forgot-password", {
       method: "POST",
@@ -24,7 +22,7 @@ export function ForgotPasswordForm() {
 
     setLoading(false);
     const payload = (await response.json().catch(() => null)) as
-      | { message?: string; error?: string; resetUrl?: string }
+      | { message?: string; error?: string }
       | null;
 
     if (!response.ok) {
@@ -36,9 +34,6 @@ export function ForgotPasswordForm() {
       payload?.message ??
         "Se o email existir na base, instruções de redefinição serão enviadas."
     );
-    if (payload?.resetUrl) {
-      setResetUrl(payload.resetUrl);
-    }
   }
 
   return (
@@ -71,12 +66,6 @@ export function ForgotPasswordForm() {
       {message ? (
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
           {message}
-        </p>
-      ) : null}
-
-      {resetUrl ? (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          Ambiente MVP: link gerado para teste: {resetUrl}
         </p>
       ) : null}
 

@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
-import { comparePassword, getSessionCookieConfig, signSessionToken } from "@/lib/auth";
+import { getSessionCookieConfig, signSessionToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonError } from "@/lib/http";
 import { logAction } from "@/lib/activity-log";
+import { getSupabaseAnonClient } from "@/lib/supabase";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -18,16 +19,55 @@ export async function POST(request: NextRequest) {
     return jsonError("Dados de login inválidos.", 400);
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: parsed.data.email.toLowerCase() },
+  const email = parsed.data.email.toLowerCase();
+
+  let authUserId = "";
+  let authUserName = "";
+  try {
+    const supabase = getSupabaseAnonClient();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: parsed.data.password,
+    });
+
+    if (error || !data.user) {
+      return jsonError("Email ou senha inválidos.", 401);
+    }
+
+    authUserId = data.user.id;
+    authUserName =
+      typeof data.user.user_metadata?.name === "string"
+        ? data.user.user_metadata.name
+        : "";
+  } catch {
+    return jsonError(
+      "Supabase Auth não configurado. Verifique variáveis de ambiente.",
+      500
+    );
+  }
+
+  let user = await prisma.user.findUnique({
+    where: { email },
   });
 
   if (!user) {
-    return jsonError("Email ou senha inválidos.", 401);
+    user = await prisma.user.create({
+      data: {
+        name: authUserName || email.split("@")[0],
+        email,
+        authUserId,
+      },
+    });
+  } else if (!user.authUserId || user.authUserId !== authUserId) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        authUserId,
+      },
+    });
   }
 
-  const isValid = await comparePassword(parsed.data.password, user.passwordHash);
-  if (!isValid) {
+  if (!user) {
     return jsonError("Email ou senha inválidos.", 401);
   }
 

@@ -39,7 +39,7 @@ model User {
   id                    String               @id @default(cuid())
   name                  String
   email                 String               @unique
-  passwordHash          String
+  authUserId            String?              @unique
   role                  Role                 @default(ATTENDANT)
   departmentId          String?
   department            Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
@@ -47,7 +47,6 @@ model User {
   messages              Message[]
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
-  passwordResetTokens   PasswordResetToken[]
   createdRules          AutomationRule[]     @relation("RuleCreator")
   activityLogs          ActivityLog[]
 }
@@ -131,18 +130,6 @@ model ReminderLog {
   @@index([conversationId])
   @@index([ruleId])
   @@index([status])
-}
-
-model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
 }
 
 model ActivityLog {

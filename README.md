@@ -3,7 +3,7 @@
 MVP funcional de um **CRM interno para empresa de transportes**, com:
 
 - autenticação com email/senha
-- recuperação de senha por token
+- recuperação de senha por email (Supabase Auth)
 - RBAC por papel (atendente, gerente, admin)
 - isolamento de dados por setor (departamento)
 - inbox de conversas com timeline
@@ -31,7 +31,7 @@ Arquitetura em camadas dentro de um monolito Next.js:
 
 ### Fluxo principal
 
-1. Usuário autentica em `/api/auth/login` (cookie HTTP-only + JWT).
+1. Usuário autentica em `/api/auth/login` (credenciais validadas via Supabase Auth + sessão HTTP-only para RBAC interno).
 2. Middleware protege rotas privadas.
 3. APIs aplicam regras RBAC por papel e setor.
 4. Ao mudar status da conversa para um gatilho (ex.: `QUOTE_SENT`), o sistema cria `ReminderLog` e agenda job na fila.
@@ -94,7 +94,9 @@ Arquitetura em camadas dentro de um monolito Next.js:
 │   │   ├── queue.ts
 │   │   ├── rbac.ts
 │   │   ├── reminders.ts
-│   │   └── session.ts
+│   │   ├── session.ts
+│   │   ├── supabase.ts
+│   │   └── supabase-browser.ts
 │   └── workers
 │       └── reminder-worker.ts
 ├── middleware.ts
@@ -110,7 +112,7 @@ Arquivo completo: `prisma/schema.prisma`
 ### Entidades principais
 
 - **User**
-  - `id`, `name`, `email`, `passwordHash`, `role`, `departmentId`, timestamps
+  - `id`, `name`, `email`, `authUserId`, `role`, `departmentId`, timestamps
 - **Department**
   - `id`, `name`, timestamps
 - **Customer**
@@ -126,7 +128,6 @@ Arquivo completo: `prisma/schema.prisma`
 
 ### Entidades de suporte
 
-- **PasswordResetToken** (recuperação de senha)
 - **ActivityLog** (auditoria/log de ações)
 
 ### Enums
@@ -144,8 +145,8 @@ Arquivo completo: `prisma/schema.prisma`
 - `POST /api/auth/login` — login
 - `POST /api/auth/logout` — logout
 - `GET /api/auth/me` — sessão atual
-- `POST /api/auth/forgot-password` — gera token de reset
-- `POST /api/auth/reset-password` — redefine senha
+- `POST /api/auth/forgot-password` — envia fluxo de recuperação do Supabase
+- `POST /api/auth/reset-password` — endpoint informativo (reset é concluído via Supabase)
 
 ### Departamentos
 
@@ -242,6 +243,14 @@ docker compose up -d
 cp .env.example .env
 ```
 
+Configure no `.env`:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
 ### 4. Banco de dados (schema + seed)
 
 ```bash
@@ -249,6 +258,9 @@ npm run prisma:generate
 npm run prisma:push
 npm run prisma:seed
 ```
+
+> A seed cria os usuários no banco interno (RBAC), mas **não cria credenciais no Supabase Auth**.
+> Crie os mesmos emails no Supabase (Dashboard > Authentication > Users) ou via endpoint de criação de usuários (admin) na aplicação.
 
 ### 5. Rodar app web
 
@@ -266,24 +278,22 @@ npm run worker
 
 ---
 
-## Usuários seed (MVP)
+## Usuários seed (MVP - RBAC interno)
 
 - **Admin**
   - `admin@jjsul.com`
-  - senha: `123456`
 - **Gerente (Vendas)**
   - `gerente.vendas@jjsul.com`
-  - senha: `123456`
 - **Atendente (Vendas)**
   - `atendente.vendas@jjsul.com`
-  - senha: `123456`
+
+As senhas passam a ser gerenciadas pelo **Supabase Auth**.
 
 ---
 
 ## Observações de evolução
 
 - Integrar provedor real de email/SMS/WhatsApp para notificações.
-- Substituir JWT custom por Supabase Auth (se desejado no roadmap).
 - Adicionar testes E2E (Playwright) e observabilidade (Sentry/OpenTelemetry).
 - Evoluir métricas com histórico temporal e SLA por setor.
 

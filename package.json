@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
-    "bcryptjs": "^3.0.3",
+    "@supabase/supabase-js": "^2.95.3",
     "bullmq": "^5.69.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -45,7 +45,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
-    "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.14",
